@@ -77,6 +77,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('payments')->group(function () {
             Route::post('/intent/{booking}',         [PaymentController::class, 'createIntent']);
             Route::post('/confirm/{booking}',        [PaymentController::class, 'confirmPayment']);
+            Route::post('/demo-confirm/{booking}',   [PaymentController::class, 'demoConfirm']);
             Route::get('/booking/{booking}',         [PaymentController::class, 'getPayment']);
         });
         Route::post('webhooks/stripe',              [PaymentController::class, 'webhook'])->withoutMiddleware('auth:api');
@@ -130,6 +131,8 @@ Route::prefix('v1')->group(function () {
             Route::get('analytics',                         [AdminController::class, 'analytics']);
             Route::get('users',                             [AdminController::class, 'users']);
             Route::patch('users/{user}/status',             [AdminController::class, 'updateUserStatus']);
+            Route::post('users/{user}/ban',                 [AdminController::class, 'banUser']);
+            Route::post('users/{user}/verify-host',         [AdminController::class, 'verifyHost']);
             Route::get('properties/pending',                [AdminController::class, 'pendingProperties']);
             Route::patch('properties/{property}/approve',   [AdminController::class, 'approveProperty']);
             Route::patch('properties/{property}/feature',   [AdminController::class, 'toggleFeature']);

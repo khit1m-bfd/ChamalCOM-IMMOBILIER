@@ -143,7 +143,7 @@ class Booking extends Model
     {
         return $this->status === 'completed'
             && !$this->guest_reviewed
-            && $this->check_out_date->diffInDays(now()) <= 14;
+            && $this->check_out_date->diffInDays(now()) <= 365;
     }
 
     public function getTotalGuestsAttribute(): int

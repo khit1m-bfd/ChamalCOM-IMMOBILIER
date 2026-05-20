@@ -15,11 +15,6 @@ use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware(['auth:api', 'role:admin']);
-    }
-
     // GET /api/v1/admin/dashboard
     public function dashboard(): JsonResponse
     {
@@ -33,8 +28,8 @@ class AdminController extends Controller
                 'active'     => User::where('status', 'active')->count(),
                 'new_today'  => User::whereDate('created_at', today())->count(),
                 'this_month' => User::whereBetween('created_at', $thisMonth)->count(),
-                'owners'     => User::role('owner')->count(),
-                'clients'    => User::role('client')->count(),
+                'owners'     => User::role('owner', 'web')->count(),
+                'clients'    => User::role('client', 'web')->count(),
             ],
             'properties' => [
                 'total'     => Property::count(),
@@ -104,7 +99,7 @@ class AdminController extends Controller
                 ->orWhere('phone', 'LIKE', "%{$s}%"));
         }
 
-        if ($request->role)   $query->role($request->role);
+        if ($request->role)   $query->role($request->role, 'web');
         if ($request->status) $query->where('status', $request->status);
 
         $users = $query->orderBy('created_at', 'desc')->paginate(15);
@@ -112,7 +107,12 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'data'    => UserResource::collection($users->items()),
-            'meta'    => ['total' => $users->total(), 'current_page' => $users->currentPage()],
+            'meta'    => [
+                'total'        => $users->total(),
+                'current_page' => $users->currentPage(),
+                'last_page'    => $users->lastPage(),
+                'per_page'     => $users->perPage(),
+            ],
         ]);
     }
 
@@ -142,6 +142,20 @@ class AdminController extends Controller
             'data'    => PropertyResource::collection($properties->items()),
             'meta'    => ['total' => $properties->total()],
         ]);
+    }
+
+    // POST /api/v1/admin/users/{user}/ban
+    public function banUser(User $user): JsonResponse
+    {
+        $user->update(['status' => 'suspended']);
+        return response()->json(['success' => true, 'data' => UserResource::make($user->fresh()->load('roles', 'profile'))]);
+    }
+
+    // POST /api/v1/admin/users/{user}/verify-host
+    public function verifyHost(User $user): JsonResponse
+    {
+        $user->profile()->updateOrCreate([], ['is_verified_host' => true]);
+        return response()->json(['success' => true, 'data' => UserResource::make($user->fresh()->load('roles', 'profile'))]);
     }
 
     // PATCH /api/v1/admin/properties/{property}/approve

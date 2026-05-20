@@ -51,7 +51,14 @@ class BookingController extends Controller
             $query->where('guest_id', $user->id);
         }
 
-        if ($request->status)    $query->where('status', $request->status);
+        if ($request->status) {
+            if ($request->status === 'cancelled') {
+                $query->where(fn ($q) => $q->where('status', 'cancelled')
+                    ->orWhere('status', 'like', 'cancelled_%'));
+            } else {
+                $query->where('status', $request->status);
+            }
+        }
         if ($request->from_date) $query->where('check_in_date', '>=', $request->from_date);
         if ($request->to_date)   $query->where('check_out_date', '<=', $request->to_date);
 
@@ -160,7 +167,14 @@ class BookingController extends Controller
             ->where('owner_id', auth()->id())
             ->orderBy('created_at', 'desc');
 
-        if ($request->status) $query->where('status', $request->status);
+        if ($request->status) {
+            if ($request->status === 'cancelled') {
+                $query->where(fn ($q) => $q->where('status', 'cancelled')
+                    ->orWhere('status', 'like', 'cancelled_%'));
+            } else {
+                $query->where('status', $request->status);
+            }
+        }
 
         $bookings = $query->paginate($request->per_page ?? 20);
 
@@ -186,11 +200,17 @@ class BookingController extends Controller
     public function ownerReject(Request $request, Booking $booking): JsonResponse
     {
         abort_if($booking->owner_id !== auth()->id(), 403);
-        $result = $this->bookingService->cancel($booking, auth()->user(), $request->reason ?? '');
+        abort_if(!in_array($booking->status, ['pending']), 422, 'Only pending bookings can be rejected');
+
+        $booking->update([
+            'status'              => 'rejected',
+            'cancelled_at'        => now(),
+            'cancellation_reason' => $request->reason ?? '',
+        ]);
 
         return response()->json([
             'success' => true,
-            'data'    => BookingResource::make($result),
+            'data'    => BookingResource::make($booking->fresh()->load(['property', 'guest', 'owner'])),
         ]);
     }
 

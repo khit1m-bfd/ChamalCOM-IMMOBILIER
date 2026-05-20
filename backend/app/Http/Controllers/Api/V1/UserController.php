@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Auth\UserResource;
-use App\Models\User;
+use App\Http\Resources\Property\PropertyResource;
+use App\Models\Favorite;
+use App\Models\Property;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -95,14 +97,27 @@ class UserController extends Controller
         ]);
     }
 
-    public function getFavorites(Request $request): JsonResponse
+    public function favorites(Request $request): JsonResponse
     {
-        $favorites = $request->user()
-            ->favorites()
-            ->with(['category', 'images' => fn($q) => $q->where('is_primary', true)])
+        $user = $request->user();
+
+        // Get property IDs favorited by this user
+        $favoriteIds = $user->favorites()->pluck('property_id');
+
+        $properties = Property::whereIn('id', $favoriteIds)
+            ->with(['category', 'images' => fn ($q) => $q->where('is_cover', true)])
             ->paginate(12);
 
-        return response()->json($favorites);
+        return response()->json([
+            'success' => true,
+            'data'    => PropertyResource::collection($properties->items()),
+            'meta'    => [
+                'total'        => $properties->total(),
+                'current_page' => $properties->currentPage(),
+                'last_page'    => $properties->lastPage(),
+                'per_page'     => $properties->perPage(),
+            ],
+        ]);
     }
 
     public function toggleFavorite(Request $request, string $propertyId): JsonResponse
@@ -123,14 +138,24 @@ class UserController extends Controller
         return response()->json(['message' => $message, 'data' => ['is_favorited' => $isFavorited]]);
     }
 
-    public function getNotifications(Request $request): JsonResponse
+    public function notifications(Request $request): JsonResponse
     {
         $notifications = $request->user()
             ->notifications()
             ->latest()
             ->paginate($request->integer('per_page', 20));
 
-        return response()->json($notifications);
+        return response()->json([
+            'success' => true,
+            'data'    => $notifications->items(),
+            'meta'    => [
+                'total'         => $notifications->total(),
+                'current_page'  => $notifications->currentPage(),
+                'last_page'     => $notifications->lastPage(),
+                'per_page'      => $notifications->perPage(),
+                'unread_count'  => $request->user()->unreadNotifications()->count(),
+            ],
+        ]);
     }
 
     public function markNotificationRead(Request $request, string $id): JsonResponse

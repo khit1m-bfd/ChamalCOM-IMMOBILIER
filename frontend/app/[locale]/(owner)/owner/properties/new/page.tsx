@@ -181,7 +181,7 @@ export default function NewPropertyPage() {
                 <select {...register('category_id')} className={inputClass(!!errors.category_id)}>
                   <option value="">{ar ? '-- اختر التصنيف --' : '-- Choisir --'}</option>
                   {categories.map(c => (
-                    <option key={c.id} value={c.id}>{ar ? c.name_ar : (c.name_fr || c.name_ar)}</option>
+                    <option key={c.id} value={c.id}>{ar ? c.name?.ar : (c.name?.fr || c.name?.ar)}</option>
                   ))}
                 </select>
                 {errors.category_id && <p className="text-destructive text-xs mt-1">{ar ? 'مطلوب' : 'Requis'}</p>}
@@ -303,7 +303,7 @@ export default function NewPropertyPage() {
                             <div className={cn('w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors', checked ? 'bg-primary border-primary' : 'border-border')}>
                               {checked && <Check className="w-2.5 h-2.5 text-white" />}
                             </div>
-                            <span className="text-sm text-foreground">{ar ? a.name_ar : (a.name_fr || a.name_ar)}</span>
+                            <span className="text-sm text-foreground">{ar ? a.name?.ar : (a.name?.fr || a.name?.ar)}</span>
                           </label>
                         )
                       })}

@@ -50,12 +50,20 @@ class PropertyController extends Controller
         ]);
     }
 
-    // GET /api/v1/properties/{property}
-    public function show(Property $property): JsonResponse
+    // GET /api/v1/properties/{property}  — accepts slug or UUID
+    public function show(string $property): JsonResponse
     {
-        if ($property->status !== 'published' && auth()->id() !== $property->owner_id && !auth()->user()?->isAdmin()) {
+        $record = Property::where('slug', $property)
+            ->orWhere('id', $property)
+            ->first();
+
+        if (!$record) abort(404);
+
+        if ($record->status !== 'published' && auth()->id() !== $record->owner_id && !auth()->user()?->isAdmin()) {
             abort(404);
         }
+
+        $property = $record;
 
         $property->increment('views_count');
 

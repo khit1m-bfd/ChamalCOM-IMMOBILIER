@@ -27,15 +27,16 @@ class UserResource extends JsonResource
             'role'              => $this->whenLoaded('roles', fn () =>
                 $this->roles->first()?->name
             ),
+            'is_host_verified'  => (bool) ($this->whenLoaded('profile', fn () => $this->profile?->is_verified_host) ?? false),
             'profile'           => $this->whenLoaded('profile', fn () => [
                 'bio'              => $this->profile?->bio,
-                'address_city'     => $this->profile?->address_city,
+                'city'             => $this->profile?->address_city,
                 'is_verified_host' => (bool) $this->profile?->is_verified_host,
                 'rating_average'   => $this->profile?->rating_average,
                 'rating_count'     => $this->profile?->rating_count,
             ]),
-            'properties_count'          => $this->whenCounted('properties'),
-            'bookings_as_guest_count'   => $this->whenCounted('bookingsAsGuest'),
+            'properties_count'  => $this->whenCounted('properties'),
+            'bookings_count'    => $this->whenCounted('bookingsAsGuest'),
             'last_login_at'             => $this->last_login_at?->toISOString(),
             'created_at'                => $this->created_at?->toISOString(),
         ];

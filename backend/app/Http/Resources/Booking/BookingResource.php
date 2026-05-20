@@ -12,7 +12,7 @@ class BookingResource extends JsonResource
         return [
             'id'             => $this->id,
             'reference'      => $this->reference,
-            'status'         => $this->status,
+            'status'         => str_starts_with($this->status, 'cancelled') ? 'cancelled' : $this->status,
             'payment_status' => $this->payment_status,
             'dates'          => [
                 'check_in'    => $this->check_in_date?->format('Y-m-d'),

@@ -82,7 +82,7 @@ export function CategoryFilter() {
                     {iconMap[cat.slug] || '🏡'}
                   </div>
                   <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground whitespace-nowrap transition-colors">
-                    {locale === 'ar' ? cat.name_ar : (cat.name_fr || cat.name_ar)}
+                    {locale === 'ar' ? (cat.name?.ar ?? cat.name_ar) : (cat.name?.fr ?? cat.name_fr ?? cat.name?.ar ?? cat.name_ar)}
                   </span>
                 </Link>
               </motion.div>

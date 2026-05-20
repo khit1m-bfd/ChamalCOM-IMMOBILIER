@@ -184,7 +184,7 @@ export function PropertyFilters() {
                         className="w-4 h-4 rounded-md border-border accent-primary"
                       />
                       <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                        {ar ? a.name_ar : (a.name_fr || a.name_ar)}
+                        {ar ? (a.name?.ar ?? a.name_ar) : (a.name?.fr ?? a.name_fr ?? a.name?.ar ?? a.name_ar)}
                       </span>
                     </label>
                   ))}

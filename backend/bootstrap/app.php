@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'auth.jwt'  => \App\Http\Middleware\JwtAuthMiddleware::class,
-            'role'      => \Spatie\Permission\Middleware\RoleMiddleware::class,
+            'role'      => \App\Http\Middleware\CheckRole::class,
             'permission'=> \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'set.locale'=> SetLocale::class,
         ]);

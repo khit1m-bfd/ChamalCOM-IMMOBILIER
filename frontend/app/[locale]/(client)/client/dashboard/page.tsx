@@ -31,14 +31,14 @@ export default function ClientDashboardPage() {
     fetchFavorites()
   }, [fetchBookings, fetchFavorites])
 
-  const upcoming   = bookings.filter(b => ['pending', 'confirmed'].includes(b.status) && new Date(b.check_in_date) >= new Date())
+  const upcoming   = bookings.filter(b => ['pending', 'confirmed'].includes(b.status) && new Date(b.dates?.check_in) >= new Date())
   const past       = bookings.filter(b => ['completed', 'cancelled', 'rejected'].includes(b.status)).slice(0, 3)
 
   const stats = [
     { icon: Calendar,      value: upcoming.length,  label: ar ? 'حجوزات قادمة' : 'Séjours à venir',    color: 'text-primary',   bg: 'bg-primary/10' },
     { icon: Heart,         value: favorites.length, label: ar ? 'عقارات محفوظة' : 'Logements sauvés',   color: 'text-red-500',   bg: 'bg-red-50 dark:bg-red-900/20' },
     { icon: CheckCircle,   value: bookings.filter(b => b.status === 'completed').length, label: ar ? 'إقامات مكتملة' : 'Séjours réalisés', color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/20' },
-    { icon: Star,          value: bookings.filter(b => b.status === 'completed' && b.payment_status === 'paid').length, label: ar ? 'تقييمات بانتظارك' : 'Avis à laisser', color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
+    { icon: Star,          value: bookings.filter(b => b.can_review).length, label: ar ? 'تقييمات بانتظارك' : 'Avis à laisser', color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
   ]
 
   return (
@@ -99,8 +99,8 @@ export default function ClientDashboardPage() {
             {upcoming.map((booking, i) => {
               const status = STATUS_CONFIG[booking.status as keyof typeof STATUS_CONFIG]
               const StatusIcon = status.icon
-              const primaryImg = booking.property?.images?.find(im => im.is_primary) ?? booking.property?.images?.[0]
-              const propTitle  = booking.property?.title_ar || ''
+              const coverImage = booking.property?.cover_image
+              const propTitle  = ar ? (booking.property?.title?.ar || '') : (booking.property?.title?.fr || booking.property?.title?.ar || '')
 
               return (
                 <motion.div
@@ -113,8 +113,8 @@ export default function ClientDashboardPage() {
                     <div className="flex gap-4 bg-card rounded-2xl p-4 border border-border hover:border-primary/30 transition-colors group">
                       {/* Image */}
                       <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
-                        {primaryImg && (
-                          <Image src={primaryImg.url} alt={propTitle} width={80} height={80} className="w-full h-full object-cover" />
+                        {coverImage && (
+                          <Image src={coverImage} alt={propTitle} width={80} height={80} className="w-full h-full object-cover" />
                         )}
                       </div>
                       {/* Info */}
@@ -130,14 +130,14 @@ export default function ClientDashboardPage() {
                         </div>
                         <p className="text-muted-foreground text-xs flex items-center gap-1 mt-1">
                           <MapPin className="w-3 h-3" />
-                          {booking.property?.city}
+                          {booking.property?.address}
                         </p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                          <span>{formatDate(booking.check_in_date, locale)}</span>
+                          <span>{formatDate(booking.dates?.check_in, locale)}</span>
                           <span>→</span>
-                          <span>{formatDate(booking.check_out_date, locale)}</span>
+                          <span>{formatDate(booking.dates?.check_out, locale)}</span>
                           <span className="ms-auto font-semibold text-foreground">
-                            {formatPrice(booking.total_amount, booking.currency)}
+                            {formatPrice(booking.pricing?.total, booking.pricing?.currency)}
                           </span>
                         </div>
                       </div>
@@ -160,20 +160,18 @@ export default function ClientDashboardPage() {
             </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {favorites.slice(0, 3).map((prop, i) => {
-              const img = prop.images?.find(x => x.is_primary) ?? prop.images?.[0]
+            {favorites.slice(0, 3).map((prop) => {
+              const propTitle = ar ? prop.title?.ar : (prop.title?.fr || prop.title?.ar)
               return (
-                <Link key={prop.id} href={`/${locale}/properties/${prop.id}`}>
+                <Link key={prop.id} href={`/${locale}/properties/${prop.slug || prop.id}`}>
                   <div className="rounded-2xl overflow-hidden border border-border hover:border-primary/30 transition-colors group">
                     <div className="relative h-28 bg-muted">
-                      {img && <Image src={img.url} alt={prop.title_ar} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />}
+                      {prop.cover_image && <Image src={prop.cover_image} alt={propTitle || ''} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />}
                     </div>
                     <div className="p-3">
-                      <p className="font-medium text-sm text-foreground truncate">
-                        {ar ? prop.title_ar : (prop.title_fr || prop.title_ar)}
-                      </p>
+                      <p className="font-medium text-sm text-foreground truncate">{propTitle}</p>
                       <p className="text-primary text-xs font-semibold mt-0.5">
-                        {formatPrice(prop.price_per_night)} <span className="text-muted-foreground font-normal">/ {ar ? 'ليلة' : 'nuit'}</span>
+                        {formatPrice(prop.pricing?.per_night, prop.pricing?.currency)} <span className="text-muted-foreground font-normal">/ {ar ? 'ليلة' : 'nuit'}</span>
                       </p>
                     </div>
                   </div>

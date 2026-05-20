@@ -84,7 +84,7 @@ export function BookingPanel({ property }: Props) {
         check_out_date: format(checkOut, 'yyyy-MM-dd'),
         adults:         guests,
       })
-      router.push(`/${locale}/client/bookings/${booking.id}/confirm`)
+      router.push(`/${locale}/client/bookings/${booking.id}/payment`)
     } catch (e: any) {
       setError(e?.response?.data?.message || (isAr ? 'فشل الحجز' : 'Échec de la réservation'))
     } finally {
