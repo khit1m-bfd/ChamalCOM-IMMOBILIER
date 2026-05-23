@@ -53,7 +53,9 @@ export default function PropertiesPage() {
       </div>
 
       {/* Category filter */}
-      <CategoryFilter />
+      <div className="mt-6">
+        <CategoryFilter />
+      </div>
 
       <div className="page-container py-8">
         {/* Header row */}

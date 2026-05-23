@@ -37,8 +37,8 @@ export function CategoryFilter() {
   }
 
   return (
-    <section className="py-10 border-b border-border">
-      <div className="page-container">
+    <section className="py-10 border-b border-border flex items-center">
+      <div className="page-container w-full">
         <div className="relative">
           {/* Left Arrow */}
           {canScrollLeft && (
@@ -54,7 +54,7 @@ export function CategoryFilter() {
           <div
             ref={scrollRef}
             onScroll={checkScroll}
-            className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth px-2 -mx-2"
+            className="flex justify-center gap-4 overflow-x-auto scrollbar-hide scroll-smooth px-12 py-4"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* All */}
@@ -70,13 +70,14 @@ export function CategoryFilter() {
             {(categories || []).map((cat: any, i: number) => (
               <motion.div
                 key={cat.id}
+                className="flex-shrink-0"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.05 }}
               >
                 <Link
                   href={`/${locale}/properties?category_id=${cat.id}`}
-                  className="flex-shrink-0 flex flex-col items-center gap-2 group"
+                  className="flex flex-col items-center gap-2 group"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center text-2xl group-hover:bg-primary/10 group-hover:scale-110 transition-all duration-200 shadow-sm">
                     {iconMap[cat.slug] || '🏡'}

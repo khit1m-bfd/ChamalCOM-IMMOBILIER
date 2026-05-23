@@ -39,11 +39,11 @@ export default function AdminUsersPage() {
   const fetch = async () => {
     setLoading(true)
     try {
-      const { data } = await api.get('/admin/users', {
+      const result = await api.get('/admin/users', {
         params: { search, role: roleFilter || undefined, page, per_page: 20 },
       })
-      setUsers(data.data || [])
-      setMeta(data.meta)
+      setUsers(result.data || [])
+      setMeta(result.meta)
     } catch { /* silent */ } finally {
       setLoading(false)
     }

@@ -1,0 +1,278 @@
+name: ChamalCom CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Backend tests (Laravel)
+  # ──────────────────────────────────────────────────────────────────────────
+  backend-tests:
+    name: Backend Tests (Laravel)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB:       chamalcom_test
+          POSTGRES_USER:     chamalcom
+          POSTGRES_PASSWORD: testpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_pgsql, redis, mbstring, exif, pcntl, bcmath, gd
+          coverage: xdebug
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy .env.testing
+        working-directory: backend
+        run: |
+          cp .env.example .env.testing
+          echo "DB_CONNECTION=pgsql"          >> .env.testing
+          echo "DB_HOST=127.0.0.1"            >> .env.testing
+          echo "DB_PORT=5432"                 >> .env.testing
+          echo "DB_DATABASE=chamalcom_test"   >> .env.testing
+          echo "DB_USERNAME=chamalcom"        >> .env.testing
+          echo "DB_PASSWORD=testpassword"     >> .env.testing
+          echo "REDIS_HOST=127.0.0.1"         >> .env.testing
+          echo "JWT_SECRET=test_jwt_secret_key_for_ci" >> .env.testing
+          echo "APP_KEY="                     >> .env.testing
+
+      - name: Generate application key
+        working-directory: backend
+        run: php artisan key:generate --env=testing
+
+      - name: Run migrations
+        working-directory: backend
+        run: php artisan migrate --env=testing --force
+
+      - name: Run PHPUnit tests
+        working-directory: backend
+        run: php artisan test --env=testing --parallel --coverage-clover=coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          file: backend/coverage.xml
+          flags: backend
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Frontend tests & build (Next.js)
+  # ──────────────────────────────────────────────────────────────────────────
+  frontend-tests:
+    name: Frontend Tests & Build (Next.js)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type check
+        working-directory: frontend
+        run: npm run type-check
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL:    ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost/api/v1' }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001' }}
+          NEXTAUTH_SECRET:        ci-test-secret
+        run: npm run build
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Socket.io lint check
+  # ──────────────────────────────────────────────────────────────────────────
+  socketio-check:
+    name: Socket.io Server Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: socketio/package.json
+
+      - name: Install dependencies
+        working-directory: socketio
+        run: npm install
+
+      - name: Syntax check
+        working-directory: socketio
+        run: node --check server.js
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Docker build & push (only on main branch push)
+  # ──────────────────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, socketio-check]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context:   backend
+          push:      true
+          tags:      ${{ steps.meta-backend.outputs.tags }}
+          labels:    ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context:   frontend
+          push:      true
+          tags:      ${{ steps.meta-frontend.outputs.tags }}
+          labels:    ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
+
+      - name: Extract metadata for socketio
+        id: meta-socketio
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/socketio
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push socket.io server
+        uses: docker/build-push-action@v5
+        with:
+          context:   socketio
+          push:      true
+          tags:      ${{ steps.meta-socketio.outputs.tags }}
+          labels:    ${{ steps.meta-socketio.outputs.labels }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Deploy to VPS (SSH)
+  # ──────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key:      ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/chamalcom
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose up -d --no-build --remove-orphans
+            docker compose exec -T backend php artisan migrate --force
+            docker compose exec -T backend php artisan config:cache
+            docker compose exec -T backend php artisan route:cache
+            docker compose exec -T backend php artisan view:cache
+            docker image prune -f
+            echo "✅ Deployment completed at $(date)"

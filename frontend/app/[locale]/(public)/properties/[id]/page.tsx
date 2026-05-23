@@ -8,7 +8,42 @@ import { motion } from 'framer-motion'
 import {
   Star, MapPin, Users, BedDouble, Bath, Heart, Share2,
   Wifi, Car, Wind, Waves, ChevronLeft, ChevronRight, CheckCircle, Zap,
+  Tv, Utensils, Microwave, Droplets, AlertTriangle, Thermometer,
+  Flame, ArrowUpDown, CircleDot, AirVent, Dumbbell,
+  Coffee, ParkingSquare, Dog, Snowflake, Shirt, ShowerHead,
+  type LucideIcon,
 } from 'lucide-react'
+
+// Map backend icon slug → Lucide component
+const AMENITY_ICONS: Record<string, LucideIcon> = {
+  wifi:             Wifi,
+  wind:             Wind,
+  tv:               Tv,
+  car:              Car,
+  utensils:         Utensils,
+  box:              Microwave,
+  microwave:        Microwave,
+  droplets:         Droplets,
+  'alert-triangle': AlertTriangle,
+  thermometer:      Thermometer,
+  flame:            Flame,
+  'arrow-up-down':  ArrowUpDown,
+  'circle-dot':     CircleDot,
+  'air-vent':       AirVent,
+  dumbbell:         Dumbbell,
+  coffee:           Coffee,
+  parking:          ParkingSquare,
+  dog:              Dog,
+  snowflake:        Snowflake,
+  shirt:            Shirt,
+  shower:           ShowerHead,
+}
+
+function AmenityIcon({ name }: { name?: string }) {
+  if (!name) return <CheckCircle className="w-4 h-4 text-primary" />
+  const Icon = AMENITY_ICONS[name.toLowerCase()] ?? CheckCircle
+  return <Icon className="w-4 h-4 text-primary" />
+}
 import { usePropertyStore } from '@/lib/stores/propertyStore'
 import { useAuthStore } from '@/lib/stores/authStore'
 import { BookingPanel } from '@/components/booking/BookingPanel'
@@ -59,7 +94,7 @@ export default function PropertyDetailPage() {
   const sorted  = [...images].sort((a, b) => (b.is_cover ? 1 : 0) - (a.is_cover ? 1 : 0))
 
   return (
-    <div className="bg-background">
+    <div className="bg-background pt-16 md:pt-20">
       {/* Gallery */}
       <div className="page-container pt-6">
         <div className="relative">
@@ -233,8 +268,8 @@ export default function PropertyDetailPage() {
                 <div className="grid grid-cols-2 gap-3">
                   {property.amenities.map(a => (
                     <div key={a.id} className="flex items-center gap-2.5 text-sm text-foreground">
-                      <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                        <span className="text-base">{a.icon || '✓'}</span>
+                      <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <AmenityIcon name={a.icon} />
                       </div>
                       {ar ? a.name?.ar : (a.name?.fr || a.name?.ar)}
                     </div>
