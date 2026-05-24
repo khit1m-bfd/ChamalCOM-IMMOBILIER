@@ -14,30 +14,39 @@ export default function OwnerPropertiesPage() {
   const locale = useLocale()
   const ar     = locale === 'ar'
 
-  const [properties, setProperties] = useState<Property[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [deleting,   setDeleting]   = useState<string | null>(null)
+  const [properties,   setProperties]   = useState<Property[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState(false)
+  const [deleting,     setDeleting]     = useState<string | null>(null)
+  const [confirmDelete,setConfirmDelete]= useState<string | null>(null)
+  const [deleteError,  setDeleteError]  = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        // Backend: { success, data: { items: Property[], pagination: {...} } }
-        const { data } = await propertiesApi.ownerProperties()
-        setProperties(data.items || [])
-      } catch { /* silent */ } finally {
-        setLoading(false)
-      }
+  const loadProperties = async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      // Backend: { success, data: { items: Property[], pagination: {...} } }
+      const { data } = await propertiesApi.ownerProperties()
+      setProperties(data.items || [])
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
     }
-    fetch()
-  }, [])
+  }
+
+  useEffect(() => { loadProperties() }, [])
 
   const handleDelete = async (id: string) => {
-    if (!confirm(ar ? 'هل أنت متأكد من حذف هذا العقار؟' : 'Êtes-vous sûr de vouloir supprimer cette propriété ?')) return
+    setConfirmDelete(null)
     setDeleting(id)
+    setDeleteError(null)
     try {
       await propertiesApi.delete(id)
       setProperties(p => p.filter(x => x.id !== id))
-    } catch { /* silent */ } finally {
+    } catch (e: any) {
+      setDeleteError(e?.response?.data?.message || (ar ? 'فشل الحذف، حاول مجدداً' : 'Échec de la suppression'))
+    } finally {
       setDeleting(null)
     }
   }
@@ -67,9 +76,23 @@ export default function OwnerPropertiesPage() {
         </Link>
       </div>
 
+      {deleteError && (
+        <div className="bg-destructive/10 text-destructive text-sm px-4 py-2.5 rounded-xl border border-destructive/20 flex items-center justify-between">
+          <span>{deleteError}</span>
+          <button onClick={() => setDeleteError(null)} className="ms-3 opacity-60 hover:opacity-100">✕</button>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3].map(i => <div key={i} className="h-40 bg-muted rounded-2xl animate-pulse" />)}
+        </div>
+      ) : error ? (
+        <div className="text-center py-20 bg-muted/40 rounded-2xl border border-dashed border-border">
+          <p className="text-muted-foreground mb-3">{ar ? 'خطأ في تحميل العقارات' : 'Erreur de chargement'}</p>
+          <button onClick={loadProperties} className="text-primary text-sm font-semibold hover:underline">
+            {ar ? 'إعادة المحاولة' : 'Réessayer'}
+          </button>
         </div>
       ) : properties.length === 0 ? (
         <div className="text-center py-20 bg-muted/40 rounded-2xl border border-dashed border-border">
@@ -161,14 +184,33 @@ export default function OwnerPropertiesPage() {
                         >
                           <Edit className="w-3.5 h-3.5 text-muted-foreground" />
                         </Link>
-                        <button
-                          onClick={() => handleDelete(property.id)}
-                          disabled={deleting === property.id}
-                          className="w-8 h-8 rounded-xl border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/30 transition-colors disabled:opacity-50"
-                          title={ar ? 'حذف' : 'Supprimer'}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                        </button>
+                        {confirmDelete === property.id ? (
+                          <div className="flex items-center gap-1 bg-destructive/5 border border-destructive/20 rounded-xl px-2 py-1">
+                            <span className="text-xs text-destructive font-medium">{ar ? 'حذف؟' : 'Suppr.?'}</span>
+                            <button
+                              onClick={() => handleDelete(property.id)}
+                              disabled={deleting === property.id}
+                              className="text-xs px-1.5 py-0.5 bg-destructive text-white rounded font-medium disabled:opacity-50"
+                            >
+                              {deleting === property.id ? '...' : (ar ? 'نعم' : 'Oui')}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete(null)}
+                              className="text-xs px-1.5 py-0.5 bg-muted rounded font-medium"
+                            >
+                              {ar ? 'لا' : 'Non'}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDelete(property.id)}
+                            disabled={deleting === property.id}
+                            className="w-8 h-8 rounded-xl border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/30 transition-colors disabled:opacity-50"
+                            title={ar ? 'حذف' : 'Supprimer'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

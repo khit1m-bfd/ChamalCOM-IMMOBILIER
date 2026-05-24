@@ -37,44 +37,49 @@ export default function AdminDashboardPage() {
 
   const [stats,   setStats]   = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
 
   useEffect(() => {
-    Promise.all([
-      api.get('/admin/dashboard'),
-      api.get('/admin/analytics'),
-    ])
-      .then(([dash, analytics]) => {
-        // dash.data: { stats: { users, properties, bookings, reviews }, revenue_chart, top_properties }
-        // analytics.data: { bookings_by_day, bookings_by_status, top_cities, payment_methods }
-        const d = dash.data
-        const a = analytics.data
+    const load = async () => {
+      try {
+        setError(false)
+        const [dash, analytics] = await Promise.all([
+          api.get('/admin/dashboard'),
+          api.get('/admin/analytics'),
+        ])
+        const d = dash?.data ?? {}
+        const a = analytics?.data ?? {}
         const bookingStatuses: { status: string; count: number }[] = Object.entries(
           (a?.bookings_by_status || {}) as Record<string, number>
         ).map(([status, count]) => ({ status, count }))
 
         setStats({
-          total_users:        d?.stats?.users?.total        ?? 0,
-          total_properties:   d?.stats?.properties?.total   ?? 0,
-          total_bookings:     d?.stats?.bookings?.total      ?? 0,
-          total_revenue:      d?.stats?.bookings?.revenue_year   ?? 0,
-          new_users_month:    d?.stats?.users?.this_month   ?? 0,
-          new_bookings_month: d?.stats?.bookings?.this_month ?? 0,
-          revenue_month:      d?.stats?.bookings?.revenue_month  ?? 0,
-          pending_reviews:    d?.stats?.properties?.pending ?? 0,
-          monthly_revenue:    (d?.revenue_chart || []).map((m: any) => ({
-            month:    m.label || m.month,
-            revenue:  m.revenue  ?? 0,
-            bookings: m.bookings ?? 0,
+          total_users:        d?.stats?.users?.total          ?? 0,
+          total_properties:   d?.stats?.properties?.total     ?? 0,
+          total_bookings:     d?.stats?.bookings?.total       ?? 0,
+          total_revenue:      d?.stats?.bookings?.revenue_year ?? 0,
+          new_users_month:    d?.stats?.users?.this_month     ?? 0,
+          new_bookings_month: d?.stats?.bookings?.this_month  ?? 0,
+          revenue_month:      d?.stats?.bookings?.revenue_month ?? 0,
+          pending_reviews:    d?.stats?.properties?.pending   ?? 0,
+          monthly_revenue: (Array.isArray(d?.revenue_chart) ? d.revenue_chart : []).map((m: any) => ({
+            month:    m?.label || m?.month || '',
+            revenue:  m?.revenue  ?? 0,
+            bookings: m?.bookings ?? 0,
           })),
-          top_cities: (a?.top_cities || []).map((c: any) => ({
-            city:  c.address_city || c.city,
-            count: c.count,
+          top_cities: (Array.isArray(a?.top_cities) ? a.top_cities : []).map((c: any) => ({
+            city:  c?.address_city || c?.city || '',
+            count: c?.count ?? 0,
           })),
           booking_statuses: bookingStatuses,
         })
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+      } catch {
+        setError(true)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [])
 
   const statCards = stats ? [

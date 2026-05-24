@@ -45,7 +45,7 @@ export function BookingPanel({ property }: Props) {
         // api.get returns body directly; backend: { success, data: { blocked_dates: [...] } }
         const { data } = await propertiesApi.availability(property.id, now.getMonth() + 1, now.getFullYear())
         setBlocked((data?.blocked_dates || []).map((d: string) => new Date(d)))
-      } catch { /* silent */ }
+      } catch {}
     }
     fetchBlocked()
   }, [property.id])

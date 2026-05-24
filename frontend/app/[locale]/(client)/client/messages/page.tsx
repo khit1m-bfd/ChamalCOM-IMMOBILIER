@@ -28,18 +28,22 @@ export default function ClientMessagesPage() {
   const [activeConversation,  setActiveConversation]  = useState<Conversation | null>(null)
   const [search,              setSearch]              = useState('')
   const [loading,             setLoading]             = useState(true)
+  const [error,               setError]               = useState(false)
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { data } = await api.get('/messages/conversations')
-        setConversations(Array.isArray(data) ? data : (data.items || data.data || []))
-      } catch { /* silent */ } finally {
-        setLoading(false)
-      }
+  const loadConversations = async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const { data } = await api.get('/conversations')
+      setConversations(Array.isArray(data) ? data : (data.items || data.data || []))
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
     }
-    load()
-  }, [])
+  }
+
+  useEffect(() => { loadConversations() }, [])
 
   const filtered = conversations.filter(c => {
     const name = c.other_participant?.name?.toLowerCase() ?? ''
@@ -82,6 +86,14 @@ export default function ClientMessagesPage() {
               {loading ? (
                 <div className="space-y-2 p-3">
                   {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted rounded-xl animate-pulse" />)}
+                </div>
+              ) : error ? (
+                <div className="flex flex-col items-center justify-center h-full text-center px-4 py-12">
+                  <MessageSquare className="w-10 h-10 text-destructive/30 mb-3" />
+                  <p className="text-muted-foreground text-sm mb-2">{ar ? 'خطأ في التحميل' : 'Erreur de chargement'}</p>
+                  <button onClick={loadConversations} className="text-primary text-xs font-semibold hover:underline">
+                    {ar ? 'إعادة المحاولة' : 'Réessayer'}
+                  </button>
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center px-4 py-12">

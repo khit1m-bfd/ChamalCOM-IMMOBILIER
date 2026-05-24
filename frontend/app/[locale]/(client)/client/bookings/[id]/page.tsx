@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
@@ -27,6 +27,9 @@ export default function BookingDetailPage() {
   const router   = useRouter()
   const ar       = locale === 'ar'
   const { currentBooking, fetchBooking, cancelBooking, loading } = useBookingStore()
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelling,    setCancelling]    = useState(false)
+  const [cancelError,   setCancelError]   = useState('')
 
   useEffect(() => { fetchBooking(id) }, [id, fetchBooking])
 
@@ -56,9 +59,17 @@ export default function BookingDetailPage() {
   const title    = ar ? b.property?.title?.ar : (b.property?.title?.fr || b.property?.title?.ar)
 
   const handleCancel = async () => {
-    if (!confirm(ar ? 'هل أنت متأكد من إلغاء هذا الحجز؟' : 'Confirmer l\'annulation ?')) return
-    await cancelBooking(b.id, ar ? 'إلغاء من قبل العميل' : 'Annulation par le client')
-    router.push(`/${locale}/client/bookings`)
+    setCancelling(true)
+    setCancelError('')
+    try {
+      await cancelBooking(b.id, ar ? 'إلغاء من قبل العميل' : 'Annulation par le client')
+      router.push(`/${locale}/client/bookings`)
+    } catch (e: any) {
+      setCancelError(e?.response?.data?.message || (ar ? 'فشل الإلغاء' : 'Échec de l\'annulation'))
+      setConfirmCancel(false)
+    } finally {
+      setCancelling(false)
+    }
   }
 
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
@@ -210,21 +221,44 @@ export default function BookingDetailPage() {
 
       {/* Actions */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-        className="flex flex-wrap gap-3 pb-4">
-        {b.can_review && b.status === 'completed' && (
-          <Link href={`/${locale}/client/bookings/${b.id}/review`}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-2xl hover:bg-primary/90 transition-colors shadow-glow-blue">
-            <Star className="w-4 h-4" />
-            {ar ? 'قيّم إقامتك' : 'Laisser un avis'}
-          </Link>
+        className="flex flex-col gap-3 pb-4">
+        {cancelError && (
+          <div className="bg-destructive/10 text-destructive text-sm rounded-2xl px-4 py-3 border border-destructive/20">
+            {cancelError}
+          </div>
         )}
-        {b.can_cancel && (
-          <button onClick={handleCancel}
-            className="flex items-center gap-2 px-5 py-2.5 border border-destructive/30 text-destructive text-sm font-semibold rounded-2xl hover:bg-destructive/10 transition-colors">
-            <XCircle className="w-4 h-4" />
-            {ar ? 'إلغاء الحجز' : 'Annuler la réservation'}
-          </button>
-        )}
+        <div className="flex flex-wrap gap-3">
+          {b.can_review && b.status === 'completed' && (
+            <Link href={`/${locale}/client/bookings/${b.id}/review`}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-2xl hover:bg-primary/90 transition-colors shadow-glow-blue">
+              <Star className="w-4 h-4" />
+              {ar ? 'قيّم إقامتك' : 'Laisser un avis'}
+            </Link>
+          )}
+          {b.can_cancel && (
+            confirmCancel ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-destructive font-medium">
+                  {ar ? 'تأكيد إلغاء الحجز؟' : 'Confirmer l\'annulation ?'}
+                </span>
+                <button onClick={handleCancel} disabled={cancelling}
+                  className="px-4 py-2 bg-destructive text-white text-sm font-semibold rounded-2xl hover:bg-destructive/90 transition-colors disabled:opacity-60">
+                  {cancelling ? (ar ? 'جارٍ...' : '...') : (ar ? 'تأكيد' : 'Confirmer')}
+                </button>
+                <button onClick={() => setConfirmCancel(false)} disabled={cancelling}
+                  className="px-4 py-2 border border-border text-sm font-medium rounded-2xl hover:bg-muted transition-colors">
+                  {ar ? 'إلغاء' : 'Annuler'}
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmCancel(true)}
+                className="flex items-center gap-2 px-5 py-2.5 border border-destructive/30 text-destructive text-sm font-semibold rounded-2xl hover:bg-destructive/10 transition-colors">
+                <XCircle className="w-4 h-4" />
+                {ar ? 'إلغاء الحجز' : 'Annuler la réservation'}
+              </button>
+            )
+          )}
+        </div>
       </motion.div>
     </div>
   )

@@ -133,9 +133,11 @@ Route::prefix('v1')->group(function () {
             Route::patch('users/{user}/status',             [AdminController::class, 'updateUserStatus']);
             Route::post('users/{user}/ban',                 [AdminController::class, 'banUser']);
             Route::post('users/{user}/verify-host',         [AdminController::class, 'verifyHost']);
+            Route::get('properties',                        [AdminController::class, 'properties']);
             Route::get('properties/pending',                [AdminController::class, 'pendingProperties']);
             Route::patch('properties/{property}/approve',   [AdminController::class, 'approveProperty']);
             Route::patch('properties/{property}/feature',   [AdminController::class, 'toggleFeature']);
+            Route::get('bookings',                          [AdminController::class, 'bookings']);
         });
     });
 });

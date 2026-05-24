@@ -65,12 +65,17 @@ export default function Verify2FAPage() {
     }
   }
 
+  const [resendError, setResendError] = useState('')
+
   const handleResend = async () => {
     if (resendTimer > 0) return
+    setResendError('')
     try {
       await resendOtp(email, '2fa')
       setResendTimer(60)
-    } catch { /* silent */ }
+    } catch (e: any) {
+      setResendError(e?.response?.data?.message || (ar ? 'فشل إعادة الإرسال' : 'Échec du renvoi'))
+    }
   }
 
   return (
@@ -96,8 +101,13 @@ export default function Verify2FAPage() {
         </p>
 
         {error && (
-          <div className="bg-destructive/10 text-destructive text-sm rounded-2xl px-4 py-3 mb-6 border border-destructive/20">
+          <div className="bg-destructive/10 text-destructive text-sm rounded-2xl px-4 py-3 mb-4 border border-destructive/20">
             {error}
+          </div>
+        )}
+        {resendError && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 text-sm rounded-2xl px-4 py-3 mb-6 border border-yellow-200 dark:border-yellow-800">
+            {resendError}
           </div>
         )}
 

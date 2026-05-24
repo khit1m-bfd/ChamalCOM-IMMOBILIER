@@ -39,15 +39,18 @@ export default function OwnerAnalyticsPage() {
   const [data,    setData]    = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [period,  setPeriod]  = useState<'30d' | '90d' | '12m'>('30d')
+  const [apiError, setApiError] = useState(false)
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      setApiError(false)
       try {
         const { data: res } = await api.get('/owner/analytics', { params: { period } })
         setData(res)
       } catch {
-        // Build mock data so the page renders even without the endpoint
+        // Fall back to empty data so the page renders even without the endpoint
+        setApiError(true)
         setData({
           overview: { total_views: 0, total_bookings: 0, total_reviews: 0, avg_rating: 0, conversion_rate: 0, repeat_guests: 0 },
           monthly_views: [],
@@ -108,6 +111,12 @@ export default function OwnerAnalyticsPage() {
           ))}
         </div>
       </div>
+
+      {apiError && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 text-sm rounded-2xl px-4 py-3 border border-yellow-200 dark:border-yellow-800">
+          {ar ? 'تعذّر تحميل البيانات الحقيقية — عرض بيانات فارغة' : 'Données indisponibles — affichage des valeurs par défaut'}
+        </div>
+      )}
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">

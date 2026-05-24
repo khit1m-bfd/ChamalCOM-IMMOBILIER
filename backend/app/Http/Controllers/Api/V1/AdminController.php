@@ -129,6 +129,59 @@ class AdminController extends Controller
         ]);
     }
 
+    // GET /api/v1/admin/properties
+    public function properties(Request $request): JsonResponse
+    {
+        $query = Property::with(['owner', 'category', 'images']);
+
+        if ($request->search) {
+            $s = $request->search;
+            $query->where(fn ($q) => $q->where('title_ar', 'LIKE', "%{$s}%")
+                ->orWhere('title_fr', 'LIKE', "%{$s}%")
+                ->orWhere('address_city', 'LIKE', "%{$s}%"));
+        }
+
+        if ($request->status) $query->where('status', $request->status);
+
+        $properties = $query->orderBy('created_at', 'desc')->paginate($request->get('per_page', 20));
+
+        return response()->json([
+            'success' => true,
+            'data'    => PropertyResource::collection($properties->items()),
+            'meta'    => ['total' => $properties->total(), 'last_page' => $properties->lastPage()],
+        ]);
+    }
+
+    // GET /api/v1/admin/bookings
+    public function bookings(Request $request): JsonResponse
+    {
+        $query = Booking::with(['property', 'guest', 'owner'])
+            ->orderBy('created_at', 'desc');
+
+        if ($request->status) $query->where('status', $request->status);
+
+        $bookings = $query->paginate($request->get('per_page', 30));
+
+        $items = $bookings->items();
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'items' => array_map(fn ($b) => [
+                    'id'         => $b->id,
+                    'reference'  => $b->reference,
+                    'status'     => $b->status,
+                    'created_at' => $b->created_at,
+                    'dates'      => ['check_in' => $b->check_in_date, 'check_out' => $b->check_out_date, 'nights' => $b->nights_count],
+                    'pricing'    => ['total' => $b->total_amount, 'currency' => $b->currency],
+                    'guest'      => $b->guest ? ['name' => $b->guest->full_name, 'email' => $b->guest->email] : null,
+                    'property'   => $b->property ? ['title' => ['ar' => $b->property->title_ar, 'fr' => $b->property->title_fr]] : null,
+                ], $items),
+            ],
+            'meta' => ['total' => $bookings->total(), 'last_page' => $bookings->lastPage()],
+        ]);
+    }
+
     // GET /api/v1/admin/properties/pending
     public function pendingProperties(): JsonResponse
     {

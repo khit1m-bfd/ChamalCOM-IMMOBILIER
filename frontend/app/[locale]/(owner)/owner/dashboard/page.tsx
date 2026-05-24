@@ -37,22 +37,25 @@ export default function OwnerDashboardPage() {
   const [stats,    setStats]    = useState<OwnerStats | null>(null)
   const [bookings, setBookings] = useState<RecentBooking[]>([])
   const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState(false)
 
   useEffect(() => {
-    const fetch = async () => {
+    const load = async () => {
       try {
+        setError(false)
         const [statsRes, bookingsRes] = await Promise.all([
           api.get('/owner/dashboard/stats'),
           api.get('/owner/bookings', { params: { per_page: 5, sort: 'newest' } }),
         ])
-        // api.get returns body: { success, data }; destructured `data` is the payload
-        setStats(statsRes.data)
-        setBookings(bookingsRes.data.items || [])
-      } catch { /* silent */ } finally {
+        setStats(statsRes?.data ?? null)
+        setBookings(bookingsRes?.data?.items ?? bookingsRes?.data ?? [])
+      } catch {
+        setError(true)
+      } finally {
         setLoading(false)
       }
     }
-    fetch()
+    load()
   }, [])
 
   const statCards = stats ? [
@@ -77,7 +80,23 @@ export default function OwnerDashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-muted rounded-2xl" />)}
         </div>
-        <div className="h-80 bg-muted rounded-2xl" />
+        <div className="h-12 bg-muted rounded-2xl" />
+        <div className="h-64 bg-muted rounded-2xl" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
+          <XCircle className="w-8 h-8 text-destructive" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-1">{ar ? 'خطأ في التحميل' : 'Erreur de chargement'}</h2>
+        <p className="text-muted-foreground text-sm mb-4">{ar ? 'تعذر تحميل البيانات، حاول مجدداً' : 'Impossible de charger les données'}</p>
+        <button onClick={() => { setLoading(true); setError(false) }} className="btn-primary text-sm py-2 px-4">
+          {ar ? 'إعادة المحاولة' : 'Réessayer'}
+        </button>
       </div>
     )
   }

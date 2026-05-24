@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useLocale } from 'next-intl'
 import { useForm, Controller } from 'react-hook-form'
@@ -44,27 +44,33 @@ export default function EditPropertyPage() {
   const ar       = locale === 'ar'
 
   const { amenities, fetchAmenities } = usePropertyStore()
-  const [property, setProperty]       = useState<any>(null)
-  const [loading,  setLoading]        = useState(true)
-  const [saving,   setSaving]         = useState(false)
-  const [deleting, setDeleting]       = useState(false)
-  const [uploading, setUploading]     = useState(false)
-  const [success,  setSuccess]        = useState(false)
-  const [error,    setError]          = useState('')
+  const [property,      setProperty]      = useState<any>(null)
+  const [loading,       setLoading]       = useState(true)
+  const [loadError,     setLoadError]     = useState(false)
+  const [saving,        setSaving]        = useState(false)
+  const [deleting,      setDeleting]      = useState(false)
+  const [uploading,     setUploading]     = useState(false)
+  const [success,       setSuccess]       = useState(false)
+  const [error,         setError]         = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [uploadError,   setUploadError]   = useState('')
 
   useEffect(() => { fetchAmenities() }, [fetchAmenities])
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { data } = await api.get(`/owner/properties/${id}`)
-        setProperty(data)
-      } catch { /* silent */ } finally {
-        setLoading(false)
-      }
+  const loadProperty = useCallback(async () => {
+    setLoading(true)
+    setLoadError(false)
+    try {
+      const { data } = await api.get(`/owner/properties/${id}`)
+      setProperty(data)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
     }
-    load()
   }, [id])
+
+  useEffect(() => { loadProperty() }, [loadProperty])
 
   const { register, handleSubmit, control, reset, formState: { errors } } = useForm<PropertyForm>({
     resolver: zodResolver(schema),
@@ -117,11 +123,14 @@ export default function EditPropertyPage() {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     setUploading(true)
+    setUploadError('')
     try {
       await propertiesApi.uploadImages(id, files)
       const { data } = await api.get(`/owner/properties/${id}`)
       setProperty(data)
-    } catch { /* silent */ } finally {
+    } catch (e: any) {
+      setUploadError(e?.response?.data?.message || (ar ? 'فشل رفع الصور' : 'Échec de l\'upload'))
+    } finally {
       setUploading(false)
     }
   }
@@ -130,7 +139,9 @@ export default function EditPropertyPage() {
     try {
       await propertiesApi.deleteImage(id, imageId)
       setProperty((p: any) => ({ ...p, images: p.images.filter((img: any) => img.id !== imageId) }))
-    } catch { /* silent */ }
+    } catch (e: any) {
+      setError(e?.response?.data?.message || (ar ? 'فشل حذف الصورة' : 'Échec de la suppression'))
+    }
   }
 
   const handleSetPrimary = async (imageId: string) => {
@@ -140,16 +151,20 @@ export default function EditPropertyPage() {
         ...p,
         images: p.images.map((img: any) => ({ ...img, is_cover: img.id === imageId })),
       }))
-    } catch { /* silent */ }
+    } catch (e: any) {
+      setError(e?.response?.data?.message || (ar ? 'فشلت العملية' : 'Opération échouée'))
+    }
   }
 
   const handleDelete = async () => {
-    if (!confirm(ar ? 'هل أنت متأكد من حذف هذا العقار نهائياً؟' : 'Êtes-vous sûr de supprimer définitivement cette propriété ?')) return
     setDeleting(true)
     try {
       await api.delete(`/properties/${id}`)
       router.push(`/${locale}/owner/properties`)
-    } catch { /* silent */ } finally {
+    } catch (e: any) {
+      setError(e?.response?.data?.message || (ar ? 'فشل الحذف' : 'Échec de la suppression'))
+      setConfirmDelete(false)
+    } finally {
       setDeleting(false)
     }
   }
@@ -158,6 +173,19 @@ export default function EditPropertyPage() {
     <div className="space-y-4 animate-pulse">
       <div className="h-8 bg-muted rounded-xl w-64" />
       <div className="h-96 bg-muted rounded-2xl" />
+    </div>
+  )
+
+  if (loadError) return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
+        <Trash2 className="w-7 h-7 text-destructive" />
+      </div>
+      <h2 className="text-lg font-semibold text-foreground mb-1">{ar ? 'خطأ في التحميل' : 'Erreur de chargement'}</h2>
+      <p className="text-muted-foreground text-sm mb-4">{ar ? 'تعذّر تحميل بيانات العقار' : 'Impossible de charger la propriété'}</p>
+      <button onClick={loadProperty} className="h-9 px-5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors">
+        {ar ? 'إعادة المحاولة' : 'Réessayer'}
+      </button>
     </div>
   )
 
@@ -197,14 +225,35 @@ export default function EditPropertyPage() {
           <h1 className="text-2xl font-bold text-foreground">{ar ? 'تعديل العقار' : 'Modifier la propriété'}</h1>
           <p className="text-muted-foreground text-xs mt-0.5">{ar ? property.title?.ar : (property.title?.fr || property.title?.ar)}</p>
         </div>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="flex items-center gap-1.5 h-9 px-4 border border-destructive/30 text-destructive text-sm font-medium rounded-xl hover:bg-destructive/10 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-          {ar ? 'حذف' : 'Supprimer'}
-        </button>
+        {confirmDelete ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-destructive font-medium hidden sm:block">
+              {ar ? 'تأكيد الحذف؟' : 'Confirmer la suppression ?'}
+            </span>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="h-9 px-4 bg-destructive text-white text-sm font-semibold rounded-xl hover:bg-destructive/90 transition-colors disabled:opacity-60"
+            >
+              {deleting ? (ar ? 'جارٍ...' : '...') : (ar ? 'تأكيد' : 'Confirmer')}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleting}
+              className="h-9 px-4 border border-border text-sm font-medium rounded-xl hover:bg-muted transition-colors"
+            >
+              {ar ? 'إلغاء' : 'Annuler'}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="flex items-center gap-1.5 h-9 px-4 border border-destructive/30 text-destructive text-sm font-medium rounded-xl hover:bg-destructive/10 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            {ar ? 'حذف' : 'Supprimer'}
+          </button>
+        )}
       </div>
 
       {/* Success / Error */}
@@ -227,6 +276,11 @@ export default function EditPropertyPage() {
             <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploading} />
           </label>
         </div>
+        {uploadError && (
+          <div className="bg-destructive/10 text-destructive text-sm rounded-xl px-3 py-2 border border-destructive/20">
+            {uploadError}
+          </div>
+        )}
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
           {(property.images || []).map((img: any) => (
             <div key={img.id} className="relative group aspect-square rounded-xl overflow-hidden bg-muted">

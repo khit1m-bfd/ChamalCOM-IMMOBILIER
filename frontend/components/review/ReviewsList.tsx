@@ -36,13 +36,17 @@ export function ReviewsList({ propertyId, ratingAvg, ratingCount }: Props) {
   const ar     = locale === 'ar'
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
 
   useEffect(() => {
     const fetch = async () => {
+      setError(false)
       try {
         const { data } = await api.get(`/properties/${propertyId}/reviews`)
         setReviews(data.data || [])
-      } catch { /* silent */ } finally {
+      } catch {
+        setError(true)
+      } finally {
         setLoading(false)
       }
     }
@@ -86,7 +90,9 @@ export function ReviewsList({ propertyId, ratingAvg, ratingCount }: Props) {
         )}
       </div>
 
-      {reviews.length === 0 ? (
+      {error ? (
+        <p className="text-muted-foreground text-sm">{ar ? 'تعذّر تحميل التقييمات' : 'Impossible de charger les avis'}</p>
+      ) : reviews.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           {ar ? 'لا توجد تقييمات بعد' : 'Aucun avis pour le moment'}
         </p>

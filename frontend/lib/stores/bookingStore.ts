@@ -90,6 +90,7 @@ interface BookingState {
   bookings: Booking[]
   currentBooking: Booking | null
   priceQuote: PriceQuote | null
+  priceQuoteError: string | null
   loading: boolean
   error: string | null
 
@@ -113,11 +114,12 @@ export interface CreateBookingData {
 }
 
 export const useBookingStore = create<BookingState>((set, get) => ({
-  bookings:       [],
-  currentBooking: null,
-  priceQuote:     null,
-  loading:        false,
-  error:          null,
+  bookings:        [],
+  currentBooking:  null,
+  priceQuote:      null,
+  priceQuoteError: null,
+  loading:         false,
+  error:           null,
 
   fetchBookings: async (params = {}) => {
     set({ loading: true, error: null })
@@ -179,17 +181,19 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   fetchPriceQuote: async (propertyId, checkIn, checkOut) => {
-    set({ loading: true })
+    set({ loading: true, priceQuoteError: null })
     try {
       // Backend: { success:true, data: PriceQuote }
       const { data } = await api.get(`/properties/${propertyId}/price-quote`, {
         params: { check_in: checkIn, check_out: checkOut },
       })
       set({ priceQuote: data })
-    } catch { /* silent */ } finally {
+    } catch (e: any) {
+      set({ priceQuoteError: e?.response?.data?.message || 'Erreur de calcul du prix' })
+    } finally {
       set({ loading: false })
     }
   },
 
-  clearPriceQuote: () => set({ priceQuote: null }),
+  clearPriceQuote: () => set({ priceQuote: null, priceQuoteError: null }),
 }))

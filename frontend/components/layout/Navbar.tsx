@@ -26,6 +26,20 @@ export function Navbar() {
   const [isMobileOpen,  setIsMobileOpen]  = useState(false)
   const [isUserMenuOpen,setIsUserMenuOpen] = useState(false)
   const [isLangOpen,    setIsLangOpen]    = useState(false)
+  const [unreadCount,   setUnreadCount]   = useState(0)
+
+  // Fetch unread notifications count when user is logged in
+  useEffect(() => {
+    if (!user) return
+    const fetchUnread = async () => {
+      try {
+        const { api } = await import('@/lib/api/client')
+        const res = await api.get('/user/notifications?per_page=1&is_read=false')
+        setUnreadCount(res?.meta?.total ?? res?.unread_count ?? 0)
+      } catch {}
+    }
+    fetchUnread()
+  }, [user])
 
   const isHome = pathname === `/${locale}` || pathname === `/${locale}/`
 
@@ -170,7 +184,7 @@ export function Navbar() {
 
               {/* Notifications */}
               <Link
-                href={`/${locale}/client/notifications`}
+                href={`/${locale}/client/dashboard`}
                 className={cn(
                   'relative p-2 rounded-xl transition-colors',
                   isScrolled || !isHome
@@ -179,7 +193,9 @@ export function Navbar() {
                 )}
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1 end-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-background" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 end-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-background" />
+                )}
               </Link>
 
               {/* User Menu */}
@@ -220,10 +236,10 @@ export function Navbar() {
 
                       <div className="py-1">
                         {[
-                          { href: getDashboardPath(), label: t('nav.dashboard'), icon: LayoutDashboard },
-                          { href: `/${locale}/profile`, label: t('nav.profile'),  icon: User },
-                          { href: `/${locale}/favorites`, label: t('nav.favorites'), icon: Heart },
-                          { href: `/${locale}/messages`, label: t('nav.messages'), icon: Search },
+                          { href: getDashboardPath(),                 label: t('nav.dashboard'), icon: LayoutDashboard },
+                          { href: `/${locale}/client/profile`,        label: t('nav.profile'),   icon: User },
+                          { href: `/${locale}/client/favorites`,      label: t('nav.favorites'), icon: Heart },
+                          { href: `/${locale}/client/messages`,       label: t('nav.messages'),  icon: Bell },
                         ].map((item) => (
                           <Link
                             key={item.href}

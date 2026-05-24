@@ -141,7 +141,8 @@ class Booking extends Model
 
     public function canBeReviewedByGuest(): bool
     {
-        return $this->status === 'completed'
+        return in_array($this->status, ['completed', 'confirmed'])
+            && $this->check_out_date->isPast()
             && !$this->guest_reviewed
             && $this->check_out_date->diffInDays(now()) <= 365;
     }

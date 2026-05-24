@@ -28,13 +28,18 @@ export default function OwnerEarningsPage() {
   const [loading, setLoading] = useState(true)
   const [period,  setPeriod]  = useState<'6m' | '12m'>('6m')
 
+  const [error, setError] = useState(false)
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      setError(false)
       try {
         const { data: res } = await api.get('/owner/earnings', { params: { period } })
         setData(res)
-      } catch { /* silent */ } finally {
+      } catch {
+        setError(true)
+      } finally {
         setLoading(false)
       }
     }
@@ -49,6 +54,21 @@ export default function OwnerEarningsPage() {
           {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-muted rounded-2xl" />)}
         </div>
         <div className="h-72 bg-muted rounded-2xl" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
+          <TrendingDown className="w-8 h-8 text-destructive" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-1">{ar ? 'خطأ في التحميل' : 'Erreur de chargement'}</h2>
+        <p className="text-muted-foreground text-sm mb-4">{ar ? 'تعذر تحميل بيانات الأرباح' : 'Impossible de charger les données'}</p>
+        <button onClick={() => { setLoading(true); setError(false) }} className="btn-primary text-sm py-2 px-4">
+          {ar ? 'إعادة المحاولة' : 'Réessayer'}
+        </button>
       </div>
     )
   }

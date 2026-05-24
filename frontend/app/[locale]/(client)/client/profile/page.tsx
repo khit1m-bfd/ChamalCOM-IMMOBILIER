@@ -94,8 +94,10 @@ export default function ClientProfilePage() {
       const form = new FormData()
       form.append('avatar', file)
       const { data } = await api.post('/user/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } })
-      updateUser({ avatar: data.data.avatar })
-    } catch { /* silent */ } finally {
+      updateUser({ avatar: data.data?.avatar ?? data.avatar })
+    } catch (e: any) {
+      console.error('Avatar upload failed:', e?.message)
+    } finally {
       setUploadingAvatar(false)
     }
   }

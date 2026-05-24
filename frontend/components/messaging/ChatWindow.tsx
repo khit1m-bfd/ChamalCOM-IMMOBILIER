@@ -34,13 +34,15 @@ export function ChatWindow({ conversationId, otherUser }: Props) {
   const { user } = useAuthStore()
   const { joinConversation, leaveConversation, sendMessage: socketSend, startTyping, stopTyping, on } = useSocket()
 
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input,    setInput]    = useState('')
-  const [loading,  setLoading]  = useState(true)
-  const [sending,  setSending]  = useState(false)
-  const [isTyping, setIsTyping] = useState(false)
-  const [page,     setPage]     = useState(1)
-  const [hasMore,  setHasMore]  = useState(false)
+  const [messages,   setMessages]   = useState<Message[]>([])
+  const [input,      setInput]      = useState('')
+  const [loading,    setLoading]    = useState(true)
+  const [loadError,  setLoadError]  = useState(false)
+  const [sending,    setSending]    = useState(false)
+  const [sendError,  setSendError]  = useState('')
+  const [isTyping,   setIsTyping]   = useState(false)
+  const [page,       setPage]       = useState(1)
+  const [hasMore,    setHasMore]    = useState(false)
 
   const bottomRef     = useRef<HTMLDivElement>(null)
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>()
@@ -49,13 +51,16 @@ export function ChatWindow({ conversationId, otherUser }: Props) {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true)
+      setLoadError(false)
       try {
         const { data } = await messagesApi.getMessages(conversationId, { page: 1, per_page: 30 })
         const items = Array.isArray(data) ? data : (data.items || data.data || [])
         setMessages([...items].reverse())
         setHasMore((data.pagination?.current_page ?? data.meta?.current_page ?? 1) < (data.pagination?.last_page ?? data.meta?.last_page ?? 1))
         await messagesApi.markRead(conversationId)
-      } catch { /* silent */ } finally {
+      } catch {
+        setLoadError(true)
+      } finally {
         setLoading(false)
       }
     }
@@ -122,6 +127,7 @@ export function ChatWindow({ conversationId, otherUser }: Props) {
     setMessages(prev => [...prev, optimistic])
     scrollToBottom()
 
+    setSendError('')
     try {
       const { data } = await messagesApi.sendMessage(conversationId, content)
       const saved = data.message ?? data.data ?? data
@@ -130,6 +136,7 @@ export function ChatWindow({ conversationId, otherUser }: Props) {
     } catch {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
       setInput(content)
+      setSendError(ar ? 'فشل إرسال الرسالة' : 'Échec de l\'envoi')
     } finally {
       setSending(false)
     }
@@ -146,6 +153,20 @@ export function ChatWindow({ conversationId, otherUser }: Props) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center px-8 gap-3">
+        <p className="text-muted-foreground text-sm">{ar ? 'فشل تحميل الرسائل' : 'Impossible de charger les messages'}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="text-primary text-xs font-semibold hover:underline"
+        >
+          {ar ? 'إعادة المحاولة' : 'Réessayer'}
+        </button>
       </div>
     )
   }
@@ -225,8 +246,11 @@ export function ChatWindow({ conversationId, otherUser }: Props) {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-border">
-        <div className="flex gap-2">
+      <div className="px-4 pt-0 pb-4 border-t border-border">
+        {sendError && (
+          <p className="text-destructive text-xs pt-2 pb-1">{sendError}</p>
+        )}
+        <div className={cn('flex gap-2', sendError ? '' : 'pt-4')}>
           <input
             value={input}
             onChange={handleInputChange}

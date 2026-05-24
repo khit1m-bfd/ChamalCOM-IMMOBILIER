@@ -46,6 +46,7 @@ interface MessageState {
   unreadTotal:        number
   loading:            boolean
   sendingMessage:     boolean
+  error:              string | null
 
   fetchConversations: ()                                          => Promise<void>
   fetchMessages:      (conversationId: string)                   => Promise<void>
@@ -64,9 +65,10 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   unreadTotal:    0,
   loading:        false,
   sendingMessage: false,
+  error:          null,
 
   fetchConversations: async () => {
-    set({ loading: true })
+    set({ loading: true, error: null })
     try {
       const { data } = await api.get('/conversations')
       const list: Conversation[] = Array.isArray(data)
@@ -76,13 +78,15 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         conversations: list,
         unreadTotal:   list.reduce((sum, c) => sum + (c.unread_count ?? 0), 0),
       })
-    } catch { /* silent */ } finally {
+    } catch (e: any) {
+      set({ error: e?.message ?? 'Erreur de chargement' })
+    } finally {
       set({ loading: false })
     }
   },
 
   fetchMessages: async (conversationId) => {
-    set({ loading: true })
+    set({ loading: true, error: null })
     try {
       const { data } = await api.get(`/conversations/${conversationId}/messages`)
       const items: Message[] = Array.isArray(data)
@@ -91,7 +95,9 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       set(s => ({
         messages: { ...s.messages, [conversationId]: [...items].reverse() },
       }))
-    } catch { /* silent */ } finally {
+    } catch (e: any) {
+      set({ error: e?.message ?? 'Erreur de chargement' })
+    } finally {
       set({ loading: false })
     }
   },
@@ -158,7 +164,7 @@ export const useMessageStore = create<MessageState>((set, get) => ({
           s.unreadTotal - (s.conversations.find(c => c.id === conversationId)?.unread_count ?? 0)
         ),
       }))
-    } catch { /* silent */ }
+    } catch {}
   },
 
   createConversation: async (recipientId, propertyId, message) => {
@@ -197,6 +203,6 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     try {
       const { data } = await api.get('/messages/unread-count')
       set({ unreadTotal: data.count ?? 0 })
-    } catch { /* silent */ }
+    } catch {}
   },
 }))

@@ -185,7 +185,7 @@ export const usePropertyStore = create<PropertyState>((set, get) => ({
       // Backend: { success: true, data: PropertyCategory[] }
       const { data } = await propertiesApi.categories()
       set({ categories: Array.isArray(data) ? data : [] })
-    } catch { /* silent */ } finally {
+    } catch {} finally {
       set({ loading: false })
     }
   },
@@ -201,7 +201,7 @@ export const usePropertyStore = create<PropertyState>((set, get) => ({
         ? data
         : Object.values(data as Record<string, PropertyAmenity[]>).flat()
       set({ amenities: flat })
-    } catch { /* silent */ } finally {
+    } catch {} finally {
       set({ loading: false })
     }
   },
@@ -251,7 +251,7 @@ export const usePropertyStore = create<PropertyState>((set, get) => ({
       // Backend: { success: true, data: Property[] }
       const { data } = await propertiesApi.getFavorites()
       set({ favorites: Array.isArray(data) ? data : [] })
-    } catch { /* silent */ }
+    } catch {}
   },
 
   toggleFavorite: async (id) => {
@@ -268,7 +268,9 @@ export const usePropertyStore = create<PropertyState>((set, get) => ({
           ? { ...currentProperty, is_favorited: !currentProperty.is_favorited }
           : currentProperty,
       })
-    } catch { /* silent */ }
+    } catch (e: any) {
+      throw e // re-throw so the UI can display a toast/error if needed
+    }
   },
 
   setSearchParams: (params) => {

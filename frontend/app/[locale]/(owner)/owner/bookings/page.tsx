@@ -41,18 +41,25 @@ export default function OwnerBookingsPage() {
 
   const [bookings,    setBookings]    = useState<Booking[]>([])
   const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState(false)
   const [acting,      setActing]      = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [rejectId,    setRejectId]    = useState<string | null>(null)
+  const [rejectReason,setRejectReason]= useState('')
   const activeStatus = searchParams.get('status') || 'all'
 
   const fetchBookings = async () => {
     setLoading(true)
+    setError(false)
     try {
       const params: any = { per_page: 20 }
       if (activeStatus !== 'all') params.status = activeStatus
       // Backend: { success: true, data: { items: Booking[], pagination: {...} } }
       const { data } = await api.get('/owner/bookings', { params })
       setBookings(data.items || [])
-    } catch { /* silent */ } finally {
+    } catch {
+      setError(true)
+    } finally {
       setLoading(false)
     }
   }
@@ -61,13 +68,18 @@ export default function OwnerBookingsPage() {
 
   const handleAction = async (id: string, action: 'confirm' | 'reject', reason?: string) => {
     setActing(id)
+    setActionError(null)
     try {
       await api.post(`/owner/bookings/${id}/${action}`, reason ? { reason } : {})
       setBookings(bs => bs.map(b => b.id === id
         ? { ...b, status: action === 'confirm' ? 'confirmed' : 'rejected' }
         : b
       ))
-    } catch { /* silent */ } finally {
+      setRejectId(null)
+      setRejectReason('')
+    } catch (e: any) {
+      setActionError(e?.response?.data?.message || (ar ? 'حدث خطأ، حاول مجدداً' : 'Une erreur est survenue'))
+    } finally {
       setActing(null)
     }
   }
@@ -108,9 +120,23 @@ export default function OwnerBookingsPage() {
         })}
       </div>
 
+      {actionError && (
+        <div className="bg-destructive/10 text-destructive text-sm px-4 py-2.5 rounded-xl border border-destructive/20">
+          {actionError}
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => <div key={i} className="h-36 bg-muted rounded-2xl animate-pulse" />)}
+        </div>
+      ) : error ? (
+        <div className="text-center py-20 bg-muted/40 rounded-2xl border border-dashed border-border">
+          <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-muted-foreground font-medium mb-2">{ar ? 'خطأ في التحميل' : 'Erreur de chargement'}</p>
+          <button onClick={fetchBookings} className="text-primary text-sm font-semibold hover:underline">
+            {ar ? 'إعادة المحاولة' : 'Réessayer'}
+          </button>
         </div>
       ) : bookings.length === 0 ? (
         <div className="text-center py-20 bg-muted/40 rounded-2xl border border-dashed border-border">
@@ -184,33 +210,59 @@ export default function OwnerBookingsPage() {
 
                 {/* Actions for pending */}
                 {booking.status === 'pending' && (
-                  <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-                    <button
-                      onClick={() => handleAction(booking.id, 'confirm')}
-                      disabled={acting === booking.id}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white text-sm font-semibold rounded-xl hover:bg-green-600 transition-colors disabled:opacity-50"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      {ar ? 'قبول' : 'Confirmer'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const reason = prompt(ar ? 'سبب الرفض (اختياري):' : 'Motif du refus (optionnel):') || ''
-                        handleAction(booking.id, 'reject', reason)
-                      }}
-                      disabled={acting === booking.id}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-destructive/10 text-destructive text-sm font-semibold rounded-xl border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      {ar ? 'رفض' : 'Refuser'}
-                    </button>
-                    <Link
-                      href={`/${locale}/client/messages`}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-muted text-muted-foreground text-sm font-medium rounded-xl hover:bg-muted/80 transition-colors ms-auto"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      {ar ? 'تواصل' : 'Contacter'}
-                    </Link>
+                  <div className="mt-4 pt-4 border-t border-border">
+                    {rejectId === booking.id ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={rejectReason}
+                          onChange={e => setRejectReason(e.target.value)}
+                          placeholder={ar ? 'سبب الرفض (اختياري)' : 'Motif du refus (optionnel)'}
+                          className="w-full px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAction(booking.id, 'reject', rejectReason)}
+                            disabled={acting === booking.id}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-destructive text-white text-sm font-semibold rounded-xl hover:bg-destructive/90 transition-colors disabled:opacity-50"
+                          >
+                            {acting === booking.id ? '...' : (ar ? 'تأكيد الرفض' : 'Confirmer le refus')}
+                          </button>
+                          <button
+                            onClick={() => { setRejectId(null); setRejectReason('') }}
+                            className="px-4 py-2 bg-muted text-muted-foreground text-sm font-medium rounded-xl hover:bg-muted/80 transition-colors"
+                          >
+                            {ar ? 'إلغاء' : 'Annuler'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleAction(booking.id, 'confirm')}
+                          disabled={acting === booking.id}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white text-sm font-semibold rounded-xl hover:bg-green-600 transition-colors disabled:opacity-50"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          {acting === booking.id ? '...' : (ar ? 'قبول' : 'Confirmer')}
+                        </button>
+                        <button
+                          onClick={() => setRejectId(booking.id)}
+                          disabled={acting === booking.id}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-destructive/10 text-destructive text-sm font-semibold rounded-xl border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          {ar ? 'رفض' : 'Refuser'}
+                        </button>
+                        <Link
+                          href={`/${locale}/owner/messages`}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-muted text-muted-foreground text-sm font-medium rounded-xl hover:bg-muted/80 transition-colors ms-auto"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          {ar ? 'تواصل' : 'Contacter'}
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>

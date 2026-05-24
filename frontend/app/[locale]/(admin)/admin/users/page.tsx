@@ -30,41 +30,52 @@ export default function AdminUsersPage() {
 
   const [users,    setUsers]    = useState<User[]>([])
   const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState(false)
   const [search,   setSearch]   = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [page,     setPage]     = useState(1)
   const [meta,     setMeta]     = useState<any>(null)
   const [actionUser, setActionUser] = useState<string | null>(null)
+  const [actionMsg,  setActionMsg]  = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const fetch = async () => {
+  const fetchUsers = async () => {
     setLoading(true)
+    setError(false)
     try {
       const result = await api.get('/admin/users', {
         params: { search, role: roleFilter || undefined, page, per_page: 20 },
       })
       setUsers(result.data || [])
       setMeta(result.meta)
-    } catch { /* silent */ } finally {
+    } catch {
+      setError(true)
+    } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { fetch() }, [search, roleFilter, page])
+  useEffect(() => { fetchUsers() }, [search, roleFilter, page])
 
   const handleBan = async (userId: string) => {
+    setActionUser(null)
     try {
       await api.post(`/admin/users/${userId}/ban`)
-      fetch()
-    } catch { /* silent */ }
-    setActionUser(null)
+      setActionMsg({ type: 'success', text: ar ? 'تم حظر المستخدم' : 'Utilisateur suspendu' })
+      fetchUsers()
+    } catch {
+      setActionMsg({ type: 'error', text: ar ? 'فشلت العملية، حاول مجدداً' : 'Opération échouée' })
+    }
   }
 
   const handleVerify = async (userId: string) => {
+    setActionUser(null)
     try {
       await api.post(`/admin/users/${userId}/verify-host`)
-      fetch()
-    } catch { /* silent */ }
-    setActionUser(null)
+      setActionMsg({ type: 'success', text: ar ? 'تم توثيق المضيف' : 'Hôte vérifié' })
+      fetchUsers()
+    } catch {
+      setActionMsg({ type: 'error', text: ar ? 'فشلت العملية، حاول مجدداً' : 'Opération échouée' })
+    }
   }
 
   const roleColors: Record<string, string> = {
@@ -90,6 +101,18 @@ export default function AdminUsersPage() {
           </p>
         )}
       </div>
+
+      {/* Action feedback */}
+      {actionMsg && (
+        <div className={cn('px-4 py-2.5 rounded-xl text-sm border flex items-center justify-between',
+          actionMsg.type === 'success'
+            ? 'bg-green-50 dark:bg-green-900/20 text-green-700 border-green-200 dark:border-green-800'
+            : 'bg-destructive/10 text-destructive border-destructive/20'
+        )}>
+          <span>{actionMsg.text}</span>
+          <button onClick={() => setActionMsg(null)} className="ms-3 opacity-60 hover:opacity-100">✕</button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
@@ -129,7 +152,16 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {loading
+              {error ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    <p className="mb-2">{ar ? 'خطأ في تحميل البيانات' : 'Erreur de chargement'}</p>
+                    <button onClick={fetchUsers} className="text-primary text-sm font-semibold hover:underline">
+                      {ar ? 'إعادة المحاولة' : 'Réessayer'}
+                    </button>
+                  </td>
+                </tr>
+              ) : loading
                 ? Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
                       <td className="p-4"><div className="flex gap-3 items-center"><div className="w-9 h-9 rounded-xl bg-muted animate-pulse" /><div className="space-y-1"><div className="h-3.5 bg-muted rounded w-28 animate-pulse" /><div className="h-2.5 bg-muted rounded w-40 animate-pulse" /></div></div></td>

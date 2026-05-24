@@ -43,7 +43,7 @@ export function useNotifications() {
       await api.post(`/notifications/${id}/read`)
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n))
       setUnreadCount(c => Math.max(0, c - 1))
-    } catch { /* silent */ }
+    } catch {}
   }, [])
 
   const markAllAsRead = useCallback(async () => {
@@ -51,7 +51,7 @@ export function useNotifications() {
       await api.post('/notifications/read-all')
       setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })))
       setUnreadCount(0)
-    } catch { /* silent */ }
+    } catch {}
   }, [])
 
   return { notifications, unreadCount, markAsRead, markAllAsRead }

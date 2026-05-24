@@ -27,8 +27,9 @@ export default function ClientBookingsPage() {
   const locale = useLocale()
   const ar     = locale === 'ar'
   const { bookings, fetchBookings, cancelBooking, loading } = useBookingStore()
-  const [activeTab, setActiveTab] = useState('upcoming')
-  const [cancelling, setCancelling] = useState<string | null>(null)
+  const [activeTab,        setActiveTab]        = useState('upcoming')
+  const [cancelling,       setCancelling]       = useState<string | null>(null)
+  const [confirmCancel,    setConfirmCancel]    = useState<string | null>(null)
 
   useEffect(() => { fetchBookings() }, [fetchBookings])
 
@@ -40,13 +41,23 @@ export default function ClientBookingsPage() {
   })
 
   const handleCancel = async (id: string) => {
-    if (!confirm(ar ? 'هل أنت متأكد من إلغاء هذا الحجز؟' : 'Êtes-vous sûr d\'annuler cette réservation ?')) return
+    setConfirmCancel(null)
     setCancelling(id)
     try {
       await cancelBooking(id, ar ? 'إلغاء من قبل العميل' : 'Annulation par le client')
+    } catch {
+      /* error handled in store */
     } finally {
       setCancelling(null)
     }
+  }
+
+  // canBeReviewed: completed OR confirmed with past checkout
+  const canBeReviewed = (b: any) => {
+    if (b.guest_reviewed) return false
+    if (b.status === 'completed') return true
+    if (b.status === 'confirmed' && b.dates?.check_out && new Date(b.dates.check_out) < now) return true
+    return false
   }
 
   return (
@@ -141,14 +152,14 @@ export default function ClientBookingsPage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2 mt-3">
+                    <div className="flex flex-wrap gap-2 mt-3">
                       <Link
                         href={`/${locale}/client/bookings/${booking.id}`}
                         className="text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors font-medium"
                       >
                         {ar ? 'التفاصيل' : 'Détails'}
                       </Link>
-                      {booking.status === 'completed' && (
+                      {canBeReviewed(booking) && (
                         <Link
                           href={`/${locale}/client/bookings/${booking.id}/review`}
                           className="text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1"
@@ -157,14 +168,33 @@ export default function ClientBookingsPage() {
                           {ar ? 'قيّم إقامتك' : 'Laisser un avis'}
                         </Link>
                       )}
-                      {canCancel && (
+                      {canCancel && confirmCancel !== booking.id && (
                         <button
-                          onClick={() => handleCancel(booking.id)}
+                          onClick={() => setConfirmCancel(booking.id)}
                           disabled={cancelling === booking.id}
                           className="text-xs px-3 py-1.5 rounded-lg text-destructive hover:bg-destructive/10 border border-destructive/20 transition-colors font-medium disabled:opacity-50"
                         >
                           {cancelling === booking.id ? '...' : (ar ? 'إلغاء' : 'Annuler')}
                         </button>
+                      )}
+                      {confirmCancel === booking.id && (
+                        <div className="flex items-center gap-1.5 bg-destructive/5 rounded-lg px-2 py-1 border border-destructive/20">
+                          <span className="text-xs text-destructive font-medium">
+                            {ar ? 'تأكيد الإلغاء؟' : 'Confirmer ?'}
+                          </span>
+                          <button
+                            onClick={() => handleCancel(booking.id)}
+                            className="text-xs px-2 py-0.5 bg-destructive text-white rounded font-medium"
+                          >
+                            {ar ? 'نعم' : 'Oui'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmCancel(null)}
+                            className="text-xs px-2 py-0.5 bg-muted rounded font-medium"
+                          >
+                            {ar ? 'لا' : 'Non'}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

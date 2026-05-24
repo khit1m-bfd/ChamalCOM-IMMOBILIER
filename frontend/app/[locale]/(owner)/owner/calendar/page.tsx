@@ -31,6 +31,8 @@ export default function OwnerCalendarPage() {
   const [reason,          setReason]          = useState('')
   const [loading,         setLoading]         = useState(false)
   const [saving,          setSaving]          = useState(false)
+  const [calendarError,   setCalendarError]   = useState('')
+  const [blockError,      setBlockError]      = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -47,13 +49,16 @@ export default function OwnerCalendarPage() {
     const load = async () => {
       setLoading(true)
       try {
+        setCalendarError('')
         const { data } = await propertiesApi.availability(
           selectedProp,
           currentMonth.getMonth() + 1,
           currentMonth.getFullYear()
         )
         setBlockedDates(data.blocked_dates || data.blocks || [])
-      } catch { /* silent */ } finally {
+      } catch (e: any) {
+        setCalendarError(e?.response?.data?.message || (isAr ? 'فشل تحميل التقويم' : 'Erreur de chargement'))
+      } finally {
         setLoading(false)
       }
     }
@@ -91,10 +96,13 @@ export default function OwnerCalendarPage() {
       })
       setSelectedDates([])
       setReason('')
+      setBlockError('')
       // Refresh
       const { data } = await propertiesApi.availability(selectedProp, currentMonth.getMonth() + 1, currentMonth.getFullYear())
-      setBlockedDates(data.data?.blocks || [])
-    } catch { /* silent */ } finally {
+      setBlockedDates(data.data?.blocks || data.blocked_dates || data.blocks || [])
+    } catch (e: any) {
+      setBlockError(e?.response?.data?.message || (isAr ? 'فشل الإغلاق' : 'Échec du blocage'))
+    } finally {
       setSaving(false)
     }
   }
@@ -103,7 +111,10 @@ export default function OwnerCalendarPage() {
     try {
       await api.delete(`/owner/properties/${selectedProp}/availability/blocks/${blockId}`)
       setBlockedDates(bs => bs.filter(b => b.id !== blockId))
-    } catch { /* silent */ }
+      setBlockError('')
+    } catch (e: any) {
+      setBlockError(e?.response?.data?.message || (isAr ? 'فشل إلغاء الإغلاق' : 'Échec du déblocage'))
+    }
   }
 
   const weekDays = isAr
@@ -139,6 +150,12 @@ export default function OwnerCalendarPage() {
               ))}
             </select>
           </div>
+
+          {calendarError && (
+            <div className="bg-destructive/10 text-destructive text-sm rounded-xl px-3 py-2 border border-destructive/20">
+              {calendarError}
+            </div>
+          )}
 
           {/* Month navigation */}
           <div className="bg-card rounded-2xl border border-border p-5">
@@ -205,6 +222,12 @@ export default function OwnerCalendarPage() {
 
         {/* Sidebar: block form + existing blocks */}
         <div className="space-y-4">
+
+          {blockError && (
+            <div className="bg-destructive/10 text-destructive text-sm rounded-xl px-3 py-2 border border-destructive/20">
+              {blockError}
+            </div>
+          )}
 
           {/* Block action */}
           <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
